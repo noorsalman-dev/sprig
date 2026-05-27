@@ -1,13 +1,9 @@
 /*
-First time? Check out the tutorial game:
-https://sprig.hackclub.com/gallery/getting_started
-
 @title: thirs a spike
-@author: 
+@author: Anonymous
 @tags: []
-@addedOn: 2025-00-00
+@addedOn: 2026-00-00
 */
-
 
 const createArray = (size) => [...Array(size).keys()];
 const wait = (time) => new Promise((resolve) => setTimeout(resolve, time));
@@ -42,35 +38,35 @@ const playerDead = [
 ................
 ................
 ................
-................
-.........33.....
-.......33333....
-......3333333...
-...33333333333..
-..3333333333333.
-.33333333333333.
+.........00.....
+.......00330....
+......0333330...
+...00033333330..
+..0333333333330.
+.033333333333330
+0333333333333330
 ................`,
 ];
 
 const playerAlive = [
   player,
   bitmap`
-................
-................
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-..333333333333..
-................
-................`,
+5555555555555555
+5.............55
+5..3333.......55
+5..3333.......55
+5..33333......55
+5..33333......55
+5..1111.......55
+5..1..1.......55
+5..1..1.......55
+5..1..1.......55
+5..1..1.......55
+5..1..111.....55
+5.11....1.....55
+5.1.....1.....55
+5555555555555555
+5555555555555555`,
 ];
 
 const objects = [
@@ -137,7 +133,6 @@ CCCCCCCCCCCCCCCC`,
 ];
 
 setLegend(playerAlive, ...objects);
-
 setSolids([player, wall]);
 
 let level = 0;
@@ -153,95 +148,63 @@ w.w.w.w.w......
 ...............
 ccccccccccccccc
 wwwwwwwwwwwwwww`,
-  map`
-...............
-..........w....
-.......w.w.w...
-......w.....w..
-w.w.w........ww
-...............
-...............
-...............
-ccccccccccccccc
-wwwwwwwwwwwwwww`,
 ];
 
-const finalSection = 
-map`
-...............
-...............
-..............w
-........w.w.w..
-..w.w.w........
-w..............
-...............
-...............
-ccccccccccccccc
-wwwwwwwwwwwwwww`
-  .split(/\n+/)
+// Fixed: Storing final section as explicit string array rows to prevent compilation split failures
+const finalSection = [
+  "...............",
+  "...............",
+  "..............w",
+  "........w.w.w..",
+  "..w.w.w........",
+  "w..............",
+  "...............",
+  "...............",
+  "ccccccccccccccc",
+  "wwwwwwwwwwwwwww"
+];
 
 const obstacles = [
-  {
-    width: 4,
-    height: 1,
-    border: 1,
-    y: 6,
-  },
-  {
-    width: 2,
-    height: 2,
-    border: 1,
-    y: 9,
-  },
-  {
-    width: 2,
-    height: 3,
-    border: 1,
-    y: 9,
-  },
-  {
-    width: 2,
-    height: 2,
-    border: 1,
-    y: 5,
-    doesFall: true,
-  },
-  {
-    width: 3,
-    height: 1,
-    border: 1,
-    y: 8,
-  },
-  {
-    width: 2,
-    height: 2,
-    border: 1,
-    y: 6,
-  },
+  { width: 4, height: 1, border: 1, y: 5 },
+  { width: 2, height: 2, border: 1, y: 5 },
+  { width: 2, height: 3, border: 1, y: 5 },
+  { width: 2, height: 2, border: 1, y: 4, doesFall: true },
+  { width: 3, height: 1, border: 1, y: 5 },
+  { width: 2, height: 2, border: 1, y: 5 },
 ];
 
 setMap(levels[level]);
 
+// Helper to safely find the floor level dynamically
+const getPlayerYFloor = () => {
+  const p = getFirst(player);
+  if (!p) return 5;
+  // Look for a wall directly underneath player
+  const below = getTile(p.x, p.y + 1);
+  return below.some(t => t.type === wall) ? p.y : null;
+};
+
 onInput("d", () => {
   if (status === "loss") return;
-
   didMoveRight = true;
-
   if (getFirst(player).x >= 10 && finalY != 15) return;
-
   getFirst(player).x++;
 });
 
 onInput("a", () => {
   if (status === "loss") return;
-
   getFirst(player).x--;
 });
 
 onInput("w", () => {
   if (status === "loss") return;
+  
+  // Refined Jump validation: check if player is actually standing on something solid
+  const p = getFirst(player);
+  const tileBelow = getTile(p.x, p.y + 1);
+  const standingOnWall = tileBelow.some(t => t.type === wall);
 
-  if (jumps) return;
+  if (jumps > 0 || !standingOnWall) return;
 
   jumps++;
   jump().then(async () => {
@@ -252,12 +215,9 @@ onInput("w", () => {
 const jump = async () => {
   await createArray(3).reduce(async (promise) => {
     await promise;
-
     getFirst(player).y--;
-
     checkIfKillablesWereTouched();
-
-    await wait(100);
+    await wait(80);
   }, Promise.resolve());
 
   await resetGravity();
@@ -266,178 +226,175 @@ const jump = async () => {
 const resetGravity = async () => {
   await createArray(3).reduce(async (promise) => {
     await promise;
-
+    // Don't fall through the floor
+    const nextTile = getTile(getFirst(player).x, getFirst(player).y + 1);
+    if (nextTile.some(t => t.type === wall)) return;
+    
     getFirst(player).y++;
-
-    await wait(100);
+    checkIfKillablesWereTouched();
+    await wait(80);
   }, Promise.resolve());
 };
 
 const shake = () => {
   if (typeof document === "undefined") return;
   const gameCanvasContainer = document.querySelector(".game-canvas-container");
-
+  if (!gameCanvasContainer) return;
   gameCanvasContainer.classList.add("shake");
-
   setTimeout(() => {
     gameCanvasContainer.classList.remove("shake");
   }, 200);
 };
 
-// gravity
+// Fixed Gravity Loop
 setInterval(() => {
+  if (status !== "playing") return;
   checkIfKillablesWereTouched();
 
-  if (jumps || getFirst(player).y === 10) return;
+  const p = getFirst(player);
+  if (!p || jumps) return;
 
-  getFirst(player).y++;
-}, 100);
+  // If there's no wall underneath, gravity pulls down
+  const tileBelow = getTile(p.x, p.y + 1);
+  if (!tileBelow.some(t => t.type === wall)) {
+    p.y++;
+  }
+}, 120);
 
 const killPlayer = () => {
   counter = 0;
   finalY = 0;
-
   if (status === 'loss') return; 
 
   status = "loss";
 
   addText("You lost!", {
-    x: 10,
-    y: 4,
-    color: color`3`,
+    x: 4,
+    y: 2,
+    color: color`1`,
   });
 
   shake();
-
   setLegend(playerDead, ...objects);
 
   setTimeout(() => {
     setLegend(playerAlive, ...objects);
-
     setMap(levels[level]);
-
-    getFirst(player).y = 10;
-    getFirst(player).x = 0;
+    
+    const p = getFirst(player);
+    if (p) {
+      p.y = 4;
+      p.x = 0;
+    }
 
     clearText();
-
     status = "playing";
-
-  }, 400);
+  }, 800);
 };
 
 const checkIfKillablesWereTouched = () => {
-  const { y: playerY, x: playerX } = getFirst(player);
+  const p = getFirst(player);
+  if (!p) return;
 
-  const playerTochedKillable = getTile(playerX, playerY).some(({ type }) =>
+  const playerTochedKillable = getTile(p.x, p.y).some(({ type }) =>
     killables.includes(type)
   );
 
   if (playerTochedKillable) killPlayer();
 };
 
-const fallBlock = (spike) => {
-  // const wallsWithSpike = tilesWith(wall).filter((w) => w.x === spike.x);
-
-  createArray(10 - spike.y).reduce(async (promise) => {
+const fallBlock = (spikeSprite) => {
+  createArray(9 - spikeSprite.y).reduce(async (promise) => {
     await promise;
+    // Fixed: safety handling to check if spike was already cleaned up/removed
+    if (!getAll(spike).includes(spikeSprite)) return;
 
-    // wallsWithSpike.forEach((b) => {
-    //   b.y++;
-    // })
-
-    if (spike.y === 9) spike.remove();
-    spike.y++;
-
+    if (spikeSprite.y >= 5) {
+      spikeSprite.remove();
+    } else {
+      spikeSprite.y++;
+    }
     await wait(100);
   }, Promise.resolve());
 };
 
 afterInput(() => {
+  if (status !== "playing") return;
   checkIfKillablesWereTouched();
 
-  if (getFirst(player).x === 14) {
+  const p = getFirst(player);
+  if (!p) return;
+
+  if (p.x === 14) {
     addText("You Win!", {
       x: 5,
-      y: 4,
+      y: 2,
       color: color`5`,
     });
-
     status = "win";
-
     return;
   }
 
-  if (finalY === 15) {
-    return;
-  }
-
-  const { y: playerY, x: playerX } = getFirst(player);
+  if (finalY === 15) return;
 
   const playerIsBlocked = tilesWith(wall).some(
-    ([{ y, x }]) => y === playerY && x === playerX + 1
+    (w) => w.y === p.y && w.x === p.x + 1
   );
-  const playerIsInScrollPosition =
-    getFirst(player).x === 10 && getFirst(player).dx === 0;
+  
+  const playerIsInScrollPosition = p.x === 10;
 
-  if (
-    !playerIsInScrollPosition ||
-    !didMoveRight ||
-    playerIsBlocked ||
-    status === "loss"
-  )
-    return;
+  if (!playerIsInScrollPosition || !didMoveRight || playerIsBlocked) return;
 
   didMoveRight = false;
 
-  objects.forEach(([letter]) => {
+  // Scroll existing objects to the left
+  const tags = [wall, coin, spike];
+  tags.forEach((letter) => {
     getAll(letter).forEach((l) => {
-      if (!l.x) l.remove();
       l.x--;
+      if (l.x < 0) l.remove();
     });
   });
 
+  // Always generate procedural base floor (y=6) so player doesn't fall forever!
+  addSprite(14, 6, wall);
+
   if (spacesToAppearSpike < 0) {
     const showTrap = Math.floor(Math.random() * 2);
-
     if (showTrap) {
-      addSprite(11, 9, coin);
+      addSprite(11, 5, coin);
       spacesToAppearSpike = 10;
     }
   }
-
   spacesToAppearSpike--;
 
-  const spikeFound = getAll(spike).find((s) => s.x === getFirst(player).x);
-
+  const spikeFound = getAll(spike).find((s) => s.x === p.x);
   if (spikeFound) fallBlock(spikeFound);
 
-  // check if player has passed more than 10 obstacles
-  if (counter === 10 && !size) {
-    finalSection.map((line, y) => {
-      if (line[finalY] === ".") return;
-
-      addSprite(14, y, line[finalY]);
-    });
-
-    finalY++;
-
+  // Generate the finale zone mapping
+  if (counter >= 10) {
+    if (finalY < finalSection[0].length) {
+      finalSection.forEach((line, yIdx) => {
+        const char = line[finalY];
+        if (char !== "." && char !== "p") {
+          addSprite(14, yIdx, char);
+        }
+      });
+      finalY++;
+    }
     return;
   }
 
+  // Handle standard procedural obstacle sizing
   if (!size) {
     counter++;
-
     const index = Math.floor(Math.random() * obstacles.length);
     obstacle = obstacles[index];
-
     size = obstacle.width + obstacle.border * 2;
-
     hasCoin = false;
   }
 
   const { width, border, height, y, doesFall } = obstacle;
-
   size -= 1;
 
   if (size <= width + border && size > border) {
@@ -450,7 +407,6 @@ afterInput(() => {
 
       if (self.length - 1 === index && !hasCoin) {
         const showCoin = Math.floor(Math.random() * 2);
-
         if (showCoin) {
           addSprite(14, y - index - 1, coin);
           hasCoin = true;
